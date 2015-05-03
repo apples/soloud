@@ -110,8 +110,10 @@ namespace SoLoud
 			WINMM,
 			XAUDIO2,
 			WASAPI,
+			ALSA,
 			OSS,
 			OPENAL,
+			NULLDRIVER,
 			BACKEND_MAX,
 		};
 
@@ -133,6 +135,17 @@ namespace SoLoud
 
 		// Translate error number to an asciiz string
 		const char * getErrorString(result aErrorCode) const;
+
+		// Returns current backend ID (BACKENDS enum)
+		unsigned int getBackendId();
+		// Returns current backend string. May be NULL.
+		const char * getBackendString();
+		// Returns current backend channel count (1 mono, 2 stereo, etc)
+		unsigned int getBackendChannels();
+		// Returns current backend sample rate
+		unsigned int getBackendSamplerate();
+		// Returns current backend buffer size
+		unsigned int getBackendBufferSize();
 
 		// Start playing a sound. Returns voice handle, which can be ignored or used to alter the playing sound's parameters.
 		handle play(AudioSource &aSound, float aVolume = 1.0f, float aPan = 0.0f, bool aPaused = 0, unsigned int aBus = 0);
@@ -243,6 +256,9 @@ namespace SoLoud
 
 		// Get current loop count. Returns 0 if handle is not valid. (All audio sources may not update loop count)
 		unsigned int getLoopCount(handle aVoiceHandle);
+		
+		// Get audiosource-specific information from a voice. 
+		float getInfo(handle aVoiceHandle, unsigned int aInfoKey);
 
 		// Create a voice group. Returns 0 if unable (out of voice groups / out of memory)
 		handle createVoiceGroup();
@@ -287,9 +303,10 @@ namespace SoLoud
 		void set3dSourceDopplerFactor(handle aVoiceHandle, float aDopplerFactor);
 
 		// Rest of the stuff is used internally.
-	public:
-		// Mix and return N stereo samples in the buffer. Called by the back-end.
+
+		// Mix and return N stereo samples in the buffer. Called by the back-end, or user with null driver.
 		void mix(float *aBuffer, unsigned int aSamples);
+	public:
 		// Handle rest of initialization (called from backend)
 		void postinit(unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aFlags);
 
@@ -307,6 +324,10 @@ namespace SoLoud
 		unsigned int mSamplerate;
 		// Output channel count
 		unsigned int mChannels;
+		// Current backend ID
+		unsigned int mBackendID;
+		// Current backend string
+		const char * mBackendString;
 		// Maximum size of output buffer; used to calculate needed scratch.
 		unsigned int mBufferSize;
 		// Flags; see Soloud::FLAGS

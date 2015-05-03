@@ -103,6 +103,19 @@ namespace SoLoud
 		return 0;
 	}
 
+	float Soloud::getInfo(handle aVoiceHandle, unsigned int mInfoKey)
+	{
+		if (mLockMutexFunc) mLockMutexFunc(mMutex);
+		int ch = getVoiceFromHandle(aVoiceHandle);
+		if (ch == -1)
+		{
+			if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
+			return 0;
+		}
+		float v = mVoice[ch]->getInfo(mInfoKey);
+		if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
+		return v;
+	}
 
 	float Soloud::getVolume(handle aVoiceHandle) const
 	{
@@ -237,4 +250,36 @@ namespace SoLoud
 		if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
 		return v;
 	}
+
+	// Returns current backend ID
+	unsigned int Soloud::getBackendId()
+	{
+		return mBackendID;
+
+	}
+
+	// Returns current backend string
+	const char * Soloud::getBackendString()
+	{
+		return mBackendString;
+	}
+
+	// Returns current backend channel count (1 mono, 2 stereo, etc)
+	unsigned int Soloud::getBackendChannels()
+	{
+		return mChannels;
+	}
+
+	// Returns current backend sample rate
+	unsigned int Soloud::getBackendSamplerate()
+	{
+		return mSamplerate;
+	}
+
+	// Returns current backend buffer size
+	unsigned int Soloud::getBackendBufferSize()
+	{
+		return mBufferSize;
+	}
+
 }

@@ -251,12 +251,12 @@ namespace SoLoud
 			}
 			if (mSoloud->mUnlockMutexFunc) mSoloud->mUnlockMutexFunc(mSoloud->mMutex);
 
-			SoLoud::FFT::fft512(temp);
+			SoLoud::FFT::fft1024(temp);
 
 			for (i = 0; i < 256; i++)
 			{
-				float real = temp[i*2];
-				float imag = temp[i*2+1];
+				float real = temp[i];
+				float imag = temp[i+512];
 				mFFTData[i] = sqrt(real*real+imag*imag);
 			}
 		}

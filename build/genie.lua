@@ -6,7 +6,9 @@ local WITH_OPENAL = 0
 local WITH_XAUDIO2 = 0
 local WITH_WINMM = 0
 local WITH_WASAPI = 0
+local WITH_ALSA = 0
 local WITH_OSS = 0
+local WITH_NULL = 1
 local WITH_LIBMODPLUG = 0
 local WITH_PORTMIDI = 0
 local WITH_TOOLS = 0
@@ -14,6 +16,7 @@ local WITH_TOOLS = 0
 if (os.is("Windows")) then
 	WITH_WINMM = 1
 else
+	WITH_ALSA = 1
 	WITH_OSS = 1
 end
 
@@ -62,6 +65,11 @@ newoption {
 }
 
 newoption {
+	trigger		  = "with-sdl2",
+	description = "Include SDL2 backend in build"
+}
+
+newoption {
 	trigger		  = "with-portaudio",
 	description = "Include PortAudio backend in build"
 }
@@ -89,6 +97,16 @@ newoption {
 newoption {
 	trigger		  = "with-sdlnondyn-only",
 	description = "Only include sdl that doesn't use dyndll in build"
+}
+
+newoption {
+	trigger		  = "with-sdl2-only",
+	description = "Only include sdl2 in build"
+}
+
+newoption {
+	trigger		  = "with-sdl2nondyn-only",
+	description = "Only include sdl2 that doesn't use dyndll in build"
 }
 
 newoption {
@@ -162,12 +180,30 @@ if _OPTIONS["with-sdl"] then
 	WITH_SDL = 1
 end
 
+if _OPTIONS["with-sdl2"] then
+	WITH_SDL = 1
+end
+
 if _OPTIONS["with-wasapi"] then
 	WITH_WASAPI = 1
 end
 
 if _OPTIONS["with-sdl-only"] then
 	WITH_SDL = 1
+	WITH_SDL_NONDYN = 0
+	WITH_SDL2_NONDYN = 0
+	WITH_PORTAUDIO = 0
+	WITH_OPENAL = 0
+	WITH_XAUDIO2 = 0
+	WITH_WINMM = 0
+	WITH_WASAPI = 0
+	WITH_OSS = 0
+end
+
+if _OPTIONS["with-sdl2-only"] then
+	WITH_SDL = 1
+	WITH_SDL_NONDYN = 0
+	WITH_SDL2_NONDYN = 0
 	WITH_PORTAUDIO = 0
 	WITH_OPENAL = 0
 	WITH_XAUDIO2 = 0
@@ -199,8 +235,22 @@ if _OPTIONS["with-sdl2nondyn-only"] then
 	WITH_OSS = 0
 end
 
+if _OPTIONS["with-sdl2nondyn-only"] then
+	WITH_SDL = 0
+	WITH_SDL_NONDYN = 0
+	WITH_SDL2_NONDYN = 1
+	WITH_PORTAUDIO = 0
+	WITH_OPENAL = 0
+	WITH_XAUDIO2 = 0
+	WITH_WINMM = 0
+	WITH_WASAPI = 0
+	WITH_OSS = 0
+end
+
 if _OPTIONS["with-native-only"] then
 	WITH_SDL = 0
+	WITH_SDL_NONDYN = 0
+	WITH_SDL2_NONDYN = 0
 	WITH_PORTAUDIO = 0
 	WITH_OPENAL = 0
 	WITH_XAUDIO2 = 0
@@ -234,6 +284,7 @@ print ("WITH_OPENAL     = ", WITH_OPENAL)
 print ("WITH_XAUDIO2    = ", WITH_XAUDIO2)
 print ("WITH_WINMM      = ", WITH_WINMM)
 print ("WITH_WASAPI     = ", WITH_WASAPI)
+print ("WITH_ALSA       = ", WITH_ALSA)
 print ("WITH_OSS        = ", WITH_OSS)
 print ("WITH_LIBMODPLUG = ", WITH_LIBMODPLUG)
 print ("WITH_PORTMIDI   = ", WITH_PORTMIDI)
@@ -262,6 +313,9 @@ solution "SoLoud"
 	includedirs {
 	  "../include"
 	}
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
 
 		links {"StaticLib"}
 		if (not os.is("windows")) then
@@ -297,6 +351,9 @@ end
 	includedirs {
 	  "../include"
 	}
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
 
 		links {"StaticLib"}
 		if (not os.is("windows")) then
@@ -319,6 +376,79 @@ end
 			flags {"Optimize"}
 			objdir (buildroot .. "/release")
 			targetname "welcome"
+			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+
+-- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
+
+  project "null"
+	kind "ConsoleApp"
+	language "C++"
+	files {
+	  "../demos/null/**.c*"
+	  }
+	includedirs {
+	  "../include"
+	}
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
+
+		links {"StaticLib"}
+		if (not os.is("windows")) then
+		  links { "pthread" }
+		end
+
+		configuration "Debug"
+			defines { "DEBUG" }
+			flags {"Symbols" }
+			objdir (buildroot .. "/debug")
+			targetname "null_d"
+			flags { "Symbols" }
+
+
+		configuration "Release"
+			defines { "NDEBUG" }
+			flags {"Optimize"}
+			objdir (buildroot .. "/release")
+			targetname "null"
+			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+
+-- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
+
+  project "enumerate"
+	kind "ConsoleApp"
+	language "C++"
+	files {
+	  "../demos/enumerate/**.c*"
+	  }
+	includedirs {
+	  "../include"
+	}
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
+
+		links {"StaticLib"}
+		if (not os.is("windows")) then
+		  links { "pthread" }
+		end
+if (WITH_LIBMODPLUG == 1) then
+		links {"libmodplug"}
+end
+
+		configuration "Debug"
+			defines { "DEBUG" }
+			flags {"Symbols" }
+			objdir (buildroot .. "/debug")
+			targetname "enumerate_d"
+			flags { "Symbols" }
+
+
+		configuration "Release"
+			defines { "NDEBUG" }
+			flags {"Optimize"}
+			objdir (buildroot .. "/release")
+			targetname "enumerate"
 			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
@@ -389,6 +519,16 @@ if (WITH_OPENAL == 1) then
 	includedirs {
 	  "../include",
 	  openal_include
+	}
+end
+
+if (WITH_ALSA == 1) then
+	defines {"WITH_ALSA"}
+	files {
+	  "../src/backend/alsa/**.c*"
+	  }
+	includedirs {
+	  "../include"
 	}
 end
 
@@ -477,6 +617,15 @@ if (WITH_WINMM == 1) then
 	  "../include"
 	}
 end
+if (WITH_NULL == 1) then
+    defines { "WITH_NULL" }
+	files {
+	  "../src/backend/null/**.c*"
+	  }
+	includedirs {
+	  "../include"
+	}
+end    
 
 		configuration "Debug"
 			defines { "DEBUG" }
@@ -524,6 +673,34 @@ end
 
 if (WITH_TOOLS == 1) then
 
+	project "tedsid2dump"
+		kind "ConsoleApp"
+		language "C++"
+		files {
+		  "../src/tools/tedsid2dump/**.cpp"
+		}
+if (WITH_LIBMODPLUG == 1) then
+		defines { "WITH_MODPLUG" }
+end
+		configuration "Debug"
+			defines { "DEBUG" }
+			flags {"Symbols" }
+			objdir (buildroot .. "/debug")
+			targetname "tedsid2dump_d"
+			flags { "Symbols" }
+
+		configuration "Release"
+			defines { "NDEBUG" }
+			flags {"Optimize"}
+			objdir (buildroot .. "/release")
+			targetname "tedsid2dump"
+			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+end
+
+-- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
+
+if (WITH_TOOLS == 1) then
+
 	project "resamplerlab"
 		kind "ConsoleApp"
 		language "C++"
@@ -548,6 +725,32 @@ end
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
 
+if (WITH_TOOLS == 1) then
+
+	project "lutgen"
+		kind "ConsoleApp"
+		language "C++"
+		files {
+		  "../src/tools/lutgen/**.c*"
+		}
+
+		configuration "Debug"
+			defines { "DEBUG" }
+			flags {"Symbols" }
+			objdir (buildroot .. "/debug")
+			targetname "lutgen_d"
+			flags { "Symbols" }
+
+		configuration "Release"
+			defines { "NDEBUG" }
+			flags {"Optimize"}
+			objdir (buildroot .. "/release")
+			targetname "lutgen"
+			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+end
+
+-- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
+
   project "c_test"
 	kind "ConsoleApp"
 	language "C++"
@@ -565,6 +768,9 @@ end
 		end
 if (WITH_LIBMODPLUG == 1) then
 		links {"libmodplug"}
+end
+if (WITH_ALSA == 1) then
+	links {"asound"}
 end
 
 
@@ -634,108 +840,61 @@ end
 --  The rest of the projects require SDL
 --
 
--- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
-
 if (WITH_SDL == 1) then
 
-
-  project "3dtest"
+function CommonDemo(_name)
+  project(_name)
 	kind "WindowedApp"
 	language "C++"
 	files {
-	  "../demos/3dtest/**.c*"
+	  "../demos/" .. _name .. "/**.c*",
+	  "../demos/common/**.c*",
+	  "../demos/common/imgui/**.c*",
+	  "../demos/common/glew/GL/**.c*"
 	  }
 	includedirs {
 	  "../include",
+	  "../demos/common",
+	  "../demos/common/imgui",
+	  "../demos/common/glew",
 	  sdl_include
 	}
 	libdirs {
 	  sdl_lib
 	}
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
 
-		links {"StaticLib", "sdlmain", "sdl"}
+		links {"StaticLib", "sdlmain", "sdl", "opengl32"}
 
 		configuration "Debug"
-			defines { "DEBUG" }
+			defines { "DEBUG", "GLEW_STATIC" }
 			flags {"Symbols" }
 			objdir (buildroot .. "/debug")
-			targetname "3dtest_d"
+			targetname (_name .. "_d")
 			flags { "Symbols" }
 
 
 		configuration "Release"
-			defines { "NDEBUG" }
+			defines { "NDEBUG", "GLEW_STATIC" }
 			flags {"Optimize"}
 			objdir (buildroot .. "/release")
-			targetname "3dtest"
+			targetname (_name)
 			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+end
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
 
-  project "mixbusses"
-	kind "WindowedApp"
-	language "C++"
-	files {
-	  "../demos/mixbusses/**.c*"
-	  }
-	includedirs {
-	  "../include",
-	  sdl_include
-	}
-	libdirs {
-	  sdl_lib
-	}
-
-
-		links {"StaticLib", "sdlmain", "sdl"}
-
-		configuration "Debug"
-			defines { "DEBUG" }
-			flags {"Symbols" }
-			objdir (buildroot .. "/debug")
-			targetname "mixbusses_d"
-			flags { "Symbols" }
-
-
-		configuration "Release"
-			defines { "NDEBUG" }
-			flags {"Optimize"}
-			objdir (buildroot .. "/release")
-			targetname "mixbusses"
-			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+  CommonDemo("3dtest")
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
 
-  project "pewpew"
-	kind "WindowedApp"
-	language "C++"
-	files {
-	  "../demos/pewpew/**.c*"
-	  }
-	includedirs {
-	  "../include",
-	  sdl_include
-	}
-	libdirs {
-	  sdl_lib
-	}
+  CommonDemo("mixbusses")
 
-		links {"StaticLib", "sdlmain", "sdl"}
+-- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
 
-		configuration "Debug"
-			defines { "DEBUG" }
-			flags {"Symbols" }
-			objdir (buildroot .. "/debug")
-			targetname "pewpew_d"
-			flags { "Symbols" }
-
-
-		configuration "Release"
-			defines { "NDEBUG" }
-			flags {"Optimize"}
-			objdir (buildroot .. "/release")
-			targetname "pewpew"
-			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+  CommonDemo("pewpew")
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
 
@@ -752,6 +911,9 @@ if (WITH_SDL == 1) then
 	libdirs {
 	  sdl_lib
 	}
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
 
 		links {"StaticLib", "sdlmain", "sdl"}
 if (WITH_LIBMODPLUG == 1) then
@@ -775,52 +937,40 @@ end
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
 
-  project "multimusic"
-	kind "WindowedApp"
-	language "C++"
-	files {
-	  "../demos/multimusic/**.c*"
-	  }
-	includedirs {
-	  "../include",
-	  sdl_include
-	}
-	libdirs {
-	  sdl_lib
-	}
-
-		links {"StaticLib", "sdlmain", "sdl"}
-
-		configuration "Debug"
-			defines { "DEBUG" }
-			flags {"Symbols" }
-			objdir (buildroot .. "/debug")
-			targetname "multimusic_d"
-			flags { "Symbols" }
-
-
-		configuration "Release"
-			defines { "NDEBUG" }
-			flags {"Optimize"}
-			objdir (buildroot .. "/release")
-			targetname "multimusic"
-			flags { "EnableSSE2", "OptimizeSpeed", "NoEditAndContinue", "No64BitChecks" }
+   CommonDemo("multimusic")
 
 -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
 
+   CommonDemo("monotone")
+
+-- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
+
+   CommonDemo("tedsid")
+
+-- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< -- 8< --
   project "piano"
 	kind "WindowedApp"
 	language "C++"
 	files {
-	  "../demos/piano/**.c*"
+	  "../demos/piano/**.c*",
+	  "../demos/common/**.c*",
+	  "../demos/common/imgui/**.c*",
+	  "../demos/common/glew/GL/**.c*"
 	  }
 	includedirs {
 	  "../include",
+	  "../demos/common",
+	  "../demos/common/imgui",
+	  "../demos/common/glew",
 	  sdl_include
 	}
 	libdirs {
 	  sdl_lib
 	}
+
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
 
 	if (WITH_PORTMIDI == 1) then
 		includedirs {
@@ -830,10 +980,10 @@ end
 		links { "portmidi" }
 	end
 
-		links {"StaticLib", "sdlmain", "sdl"}
+		links {"StaticLib", "sdlmain", "sdl", "opengl32"}
 
 		configuration "Debug"
-			defines { "DEBUG" }
+			defines { "DEBUG", "GLEW_STATIC" }
 			flags {"Symbols" }
 			objdir (buildroot .. "/debug")
 			targetname "piano_d"
@@ -844,7 +994,7 @@ end
 
 
 		configuration "Release"
-			defines { "NDEBUG" }
+			defines { "NDEBUG", "GLEW_STATIC" }
 			flags {"Optimize"}
 			objdir (buildroot .. "/release")
 			targetname "piano"
@@ -868,6 +1018,10 @@ end
 	libdirs {
 	  sdl_lib
 	}
+
+if (WITH_ALSA == 1) then
+	links {"asound"}
+end
 
 		links {"StaticLib", "sdlmain", "sdl"}
 
