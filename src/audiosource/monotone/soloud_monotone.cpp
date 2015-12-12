@@ -1,6 +1,6 @@
 /*
 MONOTONE module for SoLoud audio engine
-Copyright (c) 2015 Jari Komppa
+Copyright (c) 2013-2015 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -377,12 +377,13 @@ namespace SoLoud
 
 	Monotone::~Monotone()
 	{
+		stop();
 		clear();
 	}
 
 	static char * mystrdup(const char *src)
 	{
-		int len = strlen(src);
+		int len = (int)strlen(src);
 		char * res = new char[len + 1];
 		memcpy(res, src, len);
 		res[len] = 0;
@@ -455,11 +456,11 @@ namespace SoLoud
 			aFile->read(temp, 2);
 			unsigned int datavalue = temp[0] | (temp[1] << 8);
 			mSong.mPatternData[i] = datavalue;
-			unsigned int note = (datavalue >> 9) & 127;
-			unsigned int effect = (datavalue >> 6) & 7;
-			unsigned int effectdata = (datavalue)& 63;
-			unsigned int effectdata1 = (datavalue >> 3) & 7;
-			unsigned int effectdata2 = (datavalue >> 0) & 7;
+			//unsigned int note = (datavalue >> 9) & 127;
+			//unsigned int effect = (datavalue >> 6) & 7;
+			//unsigned int effectdata = (datavalue)& 63;
+			//unsigned int effectdata1 = (datavalue >> 3) & 7;
+			//unsigned int effectdata2 = (datavalue >> 0) & 7;
 		}
 
 		return SO_NO_ERROR;

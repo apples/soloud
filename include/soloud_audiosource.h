@@ -1,6 +1,6 @@
 /*
 SoLoud audio engine
-Copyright (c) 2013-2014 Jari Komppa
+Copyright (c) 2013-2015 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -33,6 +33,7 @@ namespace SoLoud
 {
 	class AudioSource;	
 	class AudioSourceInstance;
+	class AudioSourceInstance3dData;
 
 	struct AudioSourceResampleData
 	{
@@ -45,7 +46,63 @@ namespace SoLoud
 	{
 	public:
 		// Calculate volume multiplier. Assumed to return value between 0 and 1.
-		virtual float collide(Soloud *aSoloud, AudioSourceInstance *aAudioInstance,	int aUserData) = 0;
+		virtual float collide(Soloud *aSoloud, AudioSourceInstance3dData *aAudioInstance3dData,	int aUserData) = 0;
+	};
+
+	class AudioAttenuator
+	{
+	public:
+		virtual float attenuate(float aDistance, float aMinDistance, float aMaxDistance, float aRolloffFactor) = 0;
+	};
+
+	class AudioSourceInstance3dData
+	{
+	public:
+		// ctor
+		AudioSourceInstance3dData();
+		// Set settings from audiosource
+		void init(AudioSource &aSource);
+		// 3d position
+		float m3dPosition[3];
+		// 3d velocity
+		float m3dVelocity[3];
+		// 3d cone direction
+		/*
+		float m3dConeDirection[3];
+		// 3d cone inner angle
+		float m3dConeInnerAngle;
+		// 3d cone outer angle
+		float m3dConeOuterAngle;
+		// 3d cone outer volume multiplier
+		float m3dConeOuterVolume;
+		*/
+		// 3d min distance
+		float m3dMinDistance;
+		// 3d max distance
+		float m3dMaxDistance;
+		// 3d attenuation rolloff factor
+		float m3dAttenuationRolloff;
+		// 3d attenuation model
+		unsigned int m3dAttenuationModel;
+		// 3d doppler factor
+		float m3dDopplerFactor;
+		// Pointer to a custom audio collider object
+		AudioCollider *mCollider;
+		// Pointer to a custom audio attenuator object
+		AudioAttenuator *mAttenuator;
+		// User data related to audio collider
+		int mColliderData;
+
+		// Doppler sample rate multiplier
+		float mDopplerValue;		
+		// Overall 3d volume
+		float m3dVolume;
+		// Channel volume
+		float mChannelVolume[MAX_CHANNELS];
+		// Copy of flags
+		unsigned int mFlags;
+		// Latest handle for this voice
+		handle mHandle;
 	};
 
 	// Base class for audio instances
@@ -63,7 +120,13 @@ namespace SoLoud
 			// This audio instance is affected by 3d processing
 			PROCESS_3D = 8,
 			// This audio instance has listener-relative 3d coordinates
-			LISTENER_RELATIVE = 16
+			LISTENER_RELATIVE = 16,
+			// Currently inaudible
+			INAUDIBLE = 32,
+			// If inaudible, should be killed (default)
+			INAUDIBLE_KILL = 64,
+			// If inaudible, should still be ticked (default = pause)
+			INAUDIBLE_TICK = 128
 		};
 		// Ctor
 		AudioSourceInstance();
@@ -79,8 +142,10 @@ namespace SoLoud
 		float mPan;
 		// Volume for each channel (panning)
 		float mChannelVolume[MAX_CHANNELS];
-		// Overall volume
-		float mVolume;
+		// Set volume
+		float mSetVolume;
+		// Overall volume overall = set * 3d
+		float mOverallVolume;
 		// Base samplerate; samplerate = base samplerate * relative play speed
 		float mBaseSamplerate;
 		// Samplerate; samplerate = base samplerate * relative play speed
@@ -88,7 +153,9 @@ namespace SoLoud
 		// Number of channels this audio source produces
 		unsigned int mChannels;
 		// Relative play speed; samplerate = base samplerate * relative play speed
-		float mRelativePlaySpeed;
+		float mSetRelativePlaySpeed;
+		// Overall relative plays peed; overall = set * 3d
+		float mOverallRelativePlaySpeed;
 		// How long this stream has played, in seconds.
 		time mStreamTime;
 		// Fader for the audio panning
@@ -121,34 +188,7 @@ namespace SoLoud
 		unsigned int mLeftoverSamples;
 		// Number of samples to delay streaming
 		unsigned int mDelaySamples;
-		// 3d position
-		float m3dPosition[3];
-		// 3d velocity
-		float m3dVelocity[3];
-		// 3d cone direction
-		/*
-		float m3dConeDirection[3];
-		// 3d cone inner angle
-		float m3dConeInnerAngle;
-		// 3d cone outer angle
-		float m3dConeOuterAngle;
-		// 3d cone outer volume multiplier
-		float m3dConeOuterVolume;
-		*/
-		// 3d min distance
-		float m3dMinDistance;
-		// 3d max distance
-		float m3dMaxDistance;
-		// 3d attenuation rolloff factor
-		float m3dAttenuationRolloff;
-		// 3d attenuation model
-		unsigned int m3dAttenuationModel;
-		// 3d doppler factor
-		float m3dDopplerFactor;
-		// Pointer to a custom audio collider object
-		AudioCollider *mCollider;
-		// User data related to audio collider
-		int mColliderData;
+
 		// Get N samples from the stream to the buffer
 		virtual void getAudio(float *aBuffer, unsigned int aSamples) = 0;
 		// Has the stream ended?
@@ -180,7 +220,11 @@ namespace SoLoud
 			// Audio instances created from this source have listener-relative 3d coordinates
 			LISTENER_RELATIVE = 16,
 			// Delay start of sound by the distance from listener
-			DISTANCE_DELAY = 32
+			DISTANCE_DELAY = 32,
+			// If inaudible, should be killed (default)
+			INAUDIBLE_KILL = 64,
+			// If inaudible, should still be ticked (default = pause)
+			INAUDIBLE_TICK = 128
 		};
 		enum ATTENUATION_MODELS
 		{
@@ -198,6 +242,8 @@ namespace SoLoud
 		unsigned int mFlags;
 		// Base sample rate, used to initialize instances
 		float mBaseSamplerate;
+		// Default volume for created instances
+		float mVolume;
 		// Number of channels this audio source produces
 		unsigned int mChannels;
 		// Sound source ID. Assigned by SoLoud the first time it's played.
@@ -218,11 +264,15 @@ namespace SoLoud
 		Soloud *mSoloud;
 		// Pointer to a custom audio collider object
 		AudioCollider *mCollider;
+		// Pointer to custom attenuator object
+		AudioAttenuator *mAttenuator;
 		// User data related to audio collider
 		int mColliderData;
 
 		// CTor
 		AudioSource();
+		// Set default volume for instances
+		void setVolume(float aVolume);
 		// Set the looping of the instances created from this audio source
 		void setLooping(bool aLoop);
 		// Set whether only one instance of this sound should ever be playing at the same time
@@ -243,6 +293,11 @@ namespace SoLoud
 
 		// Set a custom 3d audio collider. Set to NULL to disable.
 		void set3dCollider(AudioCollider *aCollider, int aUserData = 0);
+		// Set a custom attenuator. Set to NULL to disable.
+		void set3dAttenuator(AudioAttenuator *aAttenuator);
+
+		// Set behavior for inaudible sounds
+		void setInaudibleBehavior(bool aMustTick, bool aKill);
 
 		// Set filter. Set to NULL to clear the filter.
 		virtual void setFilter(unsigned int aFilterId, Filter *aFilter);

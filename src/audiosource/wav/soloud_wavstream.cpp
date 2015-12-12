@@ -1,6 +1,6 @@
 /*
 SoLoud audio engine
-Copyright (c) 2013-2014 Jari Komppa
+Copyright (c) 2013-2015 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -110,13 +110,13 @@ namespace SoLoud
 				{
 					if (j == 0)
 					{
-						aBuffer[i] = aFile->read8() / (float)0x80;
+						aBuffer[i] = ((signed)aFile->read8() - 128) / (float)0x80;
 					}
 					else
 					{
 						if (aChannels > 1 && j == 1)
 						{
-							aBuffer[i + aPitch] = aFile->read8() / (float)0x80;
+							aBuffer[i + aPitch] = ((signed)aFile->read8() - 128) / (float)0x80;
 						}
 						else
 						{
@@ -135,13 +135,13 @@ namespace SoLoud
 				{
 					if (j == 0)
 					{
-						aBuffer[i] = aFile->read16() / (float)0x8000;
+						aBuffer[i] = ((signed short)aFile->read16()) / (float)0x8000;
 					}
 					else
 					{
 						if (aChannels > 1 && j == 1)
 						{
-							aBuffer[i + aPitch] = aFile->read16() / (float)0x8000;
+							aBuffer[i + aPitch] = ((signed short)aFile->read16()) / (float)0x8000;
 						}
 						else
 						{
@@ -289,18 +289,22 @@ namespace SoLoud
 		mDataOffset = 0;
 		mBits = 0;
 		mChannels = 0;
+		mMemFile = 0;
+		mStreamFile = 0;
 	}
 	
 	WavStream::~WavStream()
 	{
+		stop();
 		delete[] mFilename;
+		delete mMemFile;
 	}
 	
 #define MAKEDWORD(a,b,c,d) (((d) << 24) | ((c) << 16) | ((b) << 8) | (a))
 
 	result WavStream::loadwav(File * fp)
 	{
-		fp->seek(0);
+		fp->seek(4);
 		int wavsize = fp->read32();
 		if (fp->read32() != MAKEDWORD('W', 'A', 'V', 'E'))
 		{
@@ -398,7 +402,7 @@ namespace SoLoud
 		if (res != SO_NO_ERROR)
 			return res;
 		
-		int len = strlen(aFilename);
+		int len = (int)strlen(aFilename);
 		mFilename = new char[len+1];		
 		memcpy(mFilename, aFilename, len);
 		mFilename[len] = 0;

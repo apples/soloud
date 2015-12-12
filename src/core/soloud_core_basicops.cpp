@@ -1,6 +1,6 @@
 /*
 SoLoud audio engine
-Copyright (c) 2013-2014 Jari Komppa
+Copyright (c) 2013-2015 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -42,11 +42,11 @@ namespace SoLoud
 		aSound.mSoloud = this;
 		SoLoud::AudioSourceInstance *instance = aSound.createInstance();
 
-		if (mLockMutexFunc) mLockMutexFunc(mMutex);
+		lockAudioMutex();
 		int ch = findFreeVoice();
 		if (ch < 0) 
 		{
-			if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
+			unlockAudioMutex();
 			delete instance;
 			return UNKNOWN_ERROR;
 		}
@@ -59,6 +59,7 @@ namespace SoLoud
 		mVoice[ch]->mAudioSourceID = aSound.mAudioSourceID;
 		mVoice[ch]->mBusHandle = aBus;
 		mVoice[ch]->init(aSound, mPlayIndex);
+		m3dData[ch].init(aSound);
 
 		mPlayIndex++;
 
@@ -74,7 +75,14 @@ namespace SoLoud
 		}
 
 		setVoicePan(ch, aPan);
-		setVoiceVolume(ch, aVolume);
+		if (aVolume < 0)
+		{
+			setVoiceVolume(ch, aSound.mVolume);
+		}
+		else
+		{
+			setVoiceVolume(ch, aVolume);
+		}
 		setVoiceRelativePlaySpeed(ch, 1);
 
 		int i;
@@ -95,7 +103,7 @@ namespace SoLoud
 		memset(mVoice[ch]->mResampleData[0]->mBuffer, 0, sizeof(float) * scratchneeded);
 		memset(mVoice[ch]->mResampleData[1]->mBuffer, 0, sizeof(float) * scratchneeded);
 
-		if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
+		unlockAudioMutex();
 
 		int handle = getHandleFromVoice(ch);
 		return handle;
@@ -104,11 +112,11 @@ namespace SoLoud
 	handle Soloud::playClocked(time aSoundTime, AudioSource &aSound, float aVolume, float aPan, unsigned int aBus)
 	{
 		handle h = play(aSound, aVolume, aPan, 1, aBus);
-		if (mLockMutexFunc) mLockMutexFunc(mMutex);
+		lockAudioMutex();
 		time lasttime = mLastClockedTime;
 		if (lasttime == 0) 
 			mLastClockedTime = aSoundTime;
-		if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
+		unlockAudioMutex();
 		int samples = 0;
 		if (lasttime != 0)
 		{
@@ -122,7 +130,7 @@ namespace SoLoud
 	void Soloud::seek(handle aVoiceHandle, time aSeconds)
 	{
 		FOR_ALL_VOICES_PRE
-			mVoice[ch]->seek(aSeconds, mScratch, mScratchSize);
+			mVoice[ch]->seek(aSeconds, mScratch.mData, mScratchSize);
 		FOR_ALL_VOICES_POST
 	}
 
@@ -138,28 +146,28 @@ namespace SoLoud
 	{
 		if (aSound.mAudioSourceID)
 		{
-			if (mLockMutexFunc) mLockMutexFunc(mMutex);
+			lockAudioMutex();
 			
 			int i;
-			for (i = 0; i < VOICE_COUNT; i++)
+			for (i = 0; i < (signed)mHighestVoice; i++)
 			{
-				if (mVoice && mVoice[i] && mVoice[i]->mAudioSourceID == aSound.mAudioSourceID)
+				if (mVoice[i] && mVoice[i]->mAudioSourceID == aSound.mAudioSourceID)
 				{
 					stopVoice(i);
 				}
 			}
-			if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
+			unlockAudioMutex();
 		}
 	}
 
 	void Soloud::stopAll()
 	{
 		int i;
-		if (mLockMutexFunc) mLockMutexFunc(mMutex);
-		for (i = 0; i < VOICE_COUNT; i++)
+		lockAudioMutex();
+		for (i = 0; i < (signed)mHighestVoice; i++)
 		{
 			stopVoice(i);
 		}
-		if (mUnlockMutexFunc) mUnlockMutexFunc(mMutex);
+		unlockAudioMutex();
 	}
 }

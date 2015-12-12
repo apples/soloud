@@ -45,6 +45,7 @@ char *gIncludeFile[] =
 	"../include/soloud_echofilter.h",
 	"../include/soloud_fader.h",
 	"../include/soloud_fftfilter.h",
+	"../include/soloud_bassboostfilter.h",
 	"../include/soloud_filter.h",
 	"../include/soloud_speech.h",
 	"../include/soloud_thread.h",
@@ -567,7 +568,7 @@ void fileheader(FILE * f)
 		"\n"
 		"/*\n"
 		"SoLoud audio engine\n"
-		"Copyright (c) 2013-2014 Jari Komppa\n"
+		"Copyright (c) 2013-2015 Jari Komppa\n"
 		"\n"
 		"This software is provided 'as-is', without any express or implied\n"
 		"warranty. In no event will the authors be held liable for any damages\n"

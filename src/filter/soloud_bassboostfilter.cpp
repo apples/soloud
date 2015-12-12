@@ -1,6 +1,6 @@
 /*
 SoLoud audio engine
-Copyright (c) 2013-2014 Jari Komppa
+Copyright (c) 2013-2015 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -32,7 +32,8 @@ namespace SoLoud
 	BassboostFilterInstance::BassboostFilterInstance(BassboostFilter *aParent)
 	{
 		mParent = aParent;
-		initParams(1);
+		initParams(2);
+		mParam[BOOST] = aParent->mBoost;
 	}
 
 	void BassboostFilterInstance::fftFilterChannel(float *aFFTBuffer, unsigned int aSamples, float aSamplerate, time aTime, unsigned int aChannel, unsigned int aChannels)
@@ -40,13 +41,21 @@ namespace SoLoud
 		unsigned int i;
 		for (i = 0; i < 2; i++)
 		{
-			aFFTBuffer[i] *= 4;
+			aFFTBuffer[i] *= mParam[BOOST];
 		}
 	}
 
+	result BassboostFilter::setParams(float aBoost)
+	{
+		if (aBoost < 0)
+			return INVALID_PARAMETER;
+		mBoost = aBoost;
+		return SO_NO_ERROR;
+	}
 
 	BassboostFilter::BassboostFilter()
 	{
+		mBoost = 2;
 	}
 
 	FilterInstance *BassboostFilter::createInstance()

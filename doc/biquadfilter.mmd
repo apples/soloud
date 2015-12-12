@@ -1,5 +1,4 @@
-SoLoud::BiquadResonantFilter
-============================
+## SoLoud::BiquadResonantFilter
 
 The biquad resonant filter is a surprisingly cheap way to implement low
 and high pass filters, as well as some kind of band bass filter.
@@ -39,12 +38,12 @@ FREQUENCY   Filter's cutoff frequency
 RESONANCE   Filter's resonance - higher means sharper cutoff
 
 
-BiquadResonantFilter.setParams()
---------------------------------
+### BiquadResonantFilter.setParams()
+
 
 Set the parameters of the filter.
 
     gBQRFilter.setParams(SoLoud::BiquadResonantFilter::LOWPASS, 44100, 500, 2);  
     
-Changing the parameters does not affect "live" sounds. If invalid pameters are
+Changing the parameters does not affect "live" sounds. If invalid parameters are
 given, the function will return error.

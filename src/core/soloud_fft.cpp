@@ -1,6 +1,6 @@
 /*
 SoLoud audio engine
-Copyright (c) 2013-2014 Jari Komppa
+Copyright (c) 2013-2015 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -106,7 +106,7 @@ static void do_fft_8(float *f, const float *x)
             nbr_coef = 1 << pass;
             h_nbr_coef = nbr_coef >> 1;
             d_nbr_coef = nbr_coef << 1;
-            float *cos_ptr = Soloud_fft_trig_8 + (1L << (pass - 1)) - 4;
+			float *cos_ptr = Soloud_fft_trig_8 + (int)(1 << (pass - 1)) - 4;
 
             do
             {
@@ -229,7 +229,7 @@ static void do_fft_10(float *f, const float *x)
             nbr_coef = 1 << pass;
             h_nbr_coef = nbr_coef >> 1;
             d_nbr_coef = nbr_coef << 1;
-            float *cos_ptr = Soloud_fft_trig_10 + (1L << (pass - 1)) - 4;
+			float *cos_ptr = Soloud_fft_trig_10 + (int)(1 << (pass - 1)) - 4;
             do
             {
                 int i;
@@ -301,7 +301,7 @@ static void do_ifft_8(float *f, float *x)
             nbr_coef = 1 << pass;
             h_nbr_coef = nbr_coef >> 1;
             d_nbr_coef = nbr_coef << 1;
-            float *cos_ptr = Soloud_fft_trig_8 + (1L << (pass - 1)) - 4;
+            float *cos_ptr = Soloud_fft_trig_8 + (int)(1 << (pass - 1)) - 4;
             do
             {
                 int i;

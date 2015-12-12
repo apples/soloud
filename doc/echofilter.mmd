@@ -1,5 +1,4 @@
-SoLoud::EchoFilter
-==================
+## SoLoud::EchoFilter
 
 The echo filter in SoLoud is a very simple one. When the sound starts to
 play, the echo filter allocates a buffer to contain the echo samples,
@@ -17,12 +16,11 @@ is outside the [0..1[ range, the results are unpredictable.
     // Set the filter as the first filter of the bus
     gBus.setFilter(0, &gEchoFilter); 
 
-EchoFilter.setParams()
-----------------------
+### EchoFilter.setParams()
 
 Set the parameters of the filter.
 
     gEchoFilter.setParams(0.5f, 0.5f);
     
-Changing the parameters does not affect "live" sounds. If invalid pameters are
+Changing the parameters does not affect "live" sounds. If invalid parameters are
 given, the function will return error.

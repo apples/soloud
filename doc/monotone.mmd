@@ -1,5 +1,5 @@
-SoLoud::Monotone
-===============
+## SoLoud::Monotone
+
 
 The SoLoud::Monotone is a replayer for MONOTONE tracker songs. MONOTONE
 is a pc-speaker tracker, available on GitHub at
@@ -14,8 +14,8 @@ voice (PC beeper).
 The waveform used is square wave. Other waveforms can be used by 
 modifying the soloud_monotone.cpp.
 
-Monotone.clear()
-----------------
+### Monotone.clear()
+
 
 You can clear all data from the Monotone object using clear:
 
@@ -24,8 +24,8 @@ You can clear all data from the Monotone object using clear:
 This is primarily used internally.
 
 
-Monotone.load()
----------------
+### Monotone.load()
+
 
 You tell monotone to load a file with the load function:
 
@@ -36,14 +36,14 @@ If loading fails, the function returns an error code.
     SoLoud::Monotone swingin1;
     swingin1.load("swingin1.mon");
 
-Monotone.loadFile()
--------------------
+### Monotone.loadFile()
+
 The loadFile() can be used to load audio from a SoLoud::File object. This
 is useful for integrating with virtual filesystems / packfiles, such as
 PhysFS.
 
-Monotone.loadMem()
------------------
+### Monotone.loadMem()
+
 Alternate way of loading the file is to read from a memory buffer.
 
     result loadMem(unsigned char *aMem, int aLength, 
@@ -54,8 +54,8 @@ once it's done with it. The aCopy parameter is here for compatibility with
 the other loadMem functions.
 
 
-Monotone.setParams()
---------------------
+### Monotone.setParams()
+
 The setParams() function can be used to adjust the way SoLoud plays the
 MONOTONE file.
 
@@ -68,31 +68,48 @@ For waveform, along with the default SQUARE, the SAW, SIN and SAWSIN waveforms a
 supported. The SAWSIN is simply saw(t)*sin(t).
 
 
-Monotone.setLooping()
---------------------
+### Monotone.setLooping()
+
 
 Adjusting the looping of a monotone sound does not currently
 have any effect. All music is set to loop by default. 
 
-Monotone.setFilter()
--------------------
+### Monotone.setFilter()
+
 
 As with any other audio source, you can attach filters to 
 monotone audio sources.
 
     gMusic.setFilter(0, &gLofi);
 
-Monotone.stop()
---------------
+### Monotone.stop()
+
 
 You can stop all instances of a monotone sound source with
 stop(). This is equivalent of calling soloud.stopAudioSource()
 with the sound source.
 
     gMusic.stop();
-    
-Inherited 3d audio interfaces
------------------------------
+
+### Monotone.setInaudibleBehavior()
+
+Set the inaudible behavior of the sound. By default, if a sound is
+inaudible, it's paused, and will resume when it becomes audible again.
+With this function you can tell SoLoud to either kill the sound if
+it becomes inaudible, or to keep ticking the sound even if it's 
+inaudible.
+
+	// Keep on talking even if I'm not around
+	gSpeech.setInaudibleBehavior(true, false);
+
+### Monotone.setVolume()
+
+Set the default volume of the instances created from this audio source.
+
+    gTinyVoice.setVolume(0.1);
+       
+### Inherited 3d audio interfaces
+
 Like all other audio sources, monotone inherits the 3d audio interfaces. Please refer to the 3d audio chapter for details on:
 
 - Monotone.set3dMinMaxDistance()
@@ -102,3 +119,4 @@ Like all other audio sources, monotone inherits the 3d audio interfaces. Please 
 - Monotone.set3dListenerRelative()
 - Monotone.set3dDistanceDelay()
 - Monotone.set3dCollider()
+- Monotone.set3dAttenuator()

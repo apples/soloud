@@ -1,6 +1,6 @@
 /*
 SoLoud audio engine
-Copyright (c) 2013-2014 Jari Komppa
+Copyright (c) 2013-2015 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -118,6 +118,7 @@ namespace SoLoud
 	
 	Wav::~Wav()
 	{
+		stop();
 		delete[] mData;
 	}
 
@@ -188,13 +189,13 @@ namespace SoLoud
 				{
 					if (j == 0)
 					{
-						mData[i] = aReader->read8() / (float)0x80;
+						mData[i] = ((signed)aReader->read8() - 128) / (float)0x80;
 					}
 					else
 					{
 						if (readchannels > 1 && j == 1)
 						{
-							mData[i + samples] = aReader->read8() / (float)0x80;
+							mData[i + samples] = ((signed)aReader->read8() - 128) / (float)0x80;
 						}
 						else
 						{
@@ -213,13 +214,13 @@ namespace SoLoud
 				{
 					if (j == 0)
 					{
-						mData[i] = aReader->read16() / (float)0x8000;
+						mData[i] = ((signed short)aReader->read16()) / (float)0x8000;
 					}
 					else
 					{
 						if (readchannels > 1 && j == 1)
 						{
-							mData[i + samples] = aReader->read16() / (float)0x8000;
+							mData[i + samples] = ((signed short)aReader->read16()) / (float)0x8000;
 						}
 						else
 						{

@@ -30,9 +30,17 @@
 #include "SDL.h"
 #include <windows.h>
 #else
-#include "SDL/SDL.h"
+#include "SDL2/SDL.h"
 #endif
+#ifndef __EMSCRIPTEN__
 #include "GL/glew.h"
+#endif
+
+#ifdef __EMSCRIPTEN__
+#include "emscripten.h"
+#include <GLES2/gl2.h>
+#endif
+
 #include <math.h>
 #include <stdio.h>
 #include "imgui.h"
@@ -43,8 +51,10 @@
 int gPressed[256], gWasPressed[256];
 int gMouseX = 0;
 int gMouseY = 0;
+SDL_Window *gSDLWindow;
+GLuint desktop_tex;
 
-GLuint loadTexture(char * aFilename)
+unsigned int DemoLoadTexture(char * aFilename)
 {
 	int x, y, comp;
 	unsigned char *image = stbi_load(aFilename, &x, &y, &comp, 4);
@@ -137,36 +147,26 @@ GLuint createProgram(const char *aVertexSource, const char *aFragmentSource)
 	return program;
 }
 
-
-#define OFFSETOF(TYPE, ELEMENT) ((size_t)&(((TYPE *)0)->ELEMENT))
-
-// Shader variables
-static int shader_handle;
-static int texture_location, proj_mtx_location;
-static int position_location, uv_location, color_location;
-static size_t vbo_max_size = 20000;
-static unsigned int vbo_handle, vao_handle;
-static unsigned int desktop_tex;
+static GLuint       g_FontTexture = 0;
+static int          g_ShaderHandle = 0, g_VertHandle = 0, g_FragHandle = 0;
+static int          g_AttribLocationTex = 0, g_AttribLocationProjMtx = 0;
+static int          g_AttribLocationPosition = 0, g_AttribLocationUV = 0, g_AttribLocationColor = 0;
+static unsigned int g_VboHandle = 0, g_ElementsHandle = 0;
 
 // This is the main rendering function that you have to implement and provide to ImGui (via setting up 'RenderDrawListsFn' in the ImGuiIO structure)
 // If text or lines are blurry when integrating ImGui in your engine:
 // - in your Render function, try translating your projection matrix by (0.5f,0.5f) or (0.375f,0.375f)
-static void ImImpl_RenderDrawLists(ImDrawList** const cmd_lists, int cmd_lists_count)
+void ImImpl_RenderDrawLists(ImDrawData* draw_data)
 {
-	if (cmd_lists_count == 0)
-		return;
-
-	glBindVertexArray(vao_handle);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_handle);
-	glEnableVertexAttribArray(position_location);
-	glEnableVertexAttribArray(uv_location);
-	glEnableVertexAttribArray(color_location);
-
-	glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, pos));
-	glVertexAttribPointer(uv_location, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, uv));
-	glVertexAttribPointer(color_location, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, col));
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	// Backup GL state
+	GLint last_program; glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
+	GLint last_texture; glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
+	GLint last_array_buffer; glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &last_array_buffer);
+	GLint last_element_array_buffer; glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &last_element_array_buffer);
+	GLboolean last_enable_blend = glIsEnabled(GL_BLEND);
+	GLboolean last_enable_cull_face = glIsEnabled(GL_CULL_FACE);
+	GLboolean last_enable_depth_test = glIsEnabled(GL_DEPTH_TEST);
+	GLboolean last_enable_scissor_test = glIsEnabled(GL_SCISSOR_TEST);
 
 	// Setup render state: alpha-blending enabled, no face culling, no depth testing, scissor enabled
 	glEnable(GL_BLEND);
@@ -176,115 +176,113 @@ static void ImImpl_RenderDrawLists(ImDrawList** const cmd_lists, int cmd_lists_c
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_SCISSOR_TEST);
 	glActiveTexture(GL_TEXTURE0);
+	
+	// Handle cases of screen coordinates != from framebuffer coordinates (e.g. retina displays)
+	ImGuiIO& io = ImGui::GetIO();
+	float fb_height = io.DisplaySize.y * io.DisplayFramebufferScale.y;
+	draw_data->ScaleClipRects(io.DisplayFramebufferScale);
 
 	// Setup orthographic projection matrix
-	const float width = ImGui::GetIO().DisplaySize.x;
-	const float height = ImGui::GetIO().DisplaySize.y;
 	const float ortho_projection[4][4] =
 	{
-		{ 2.0f / width, 0.0f, 0.0f, 0.0f },
-		{ 0.0f, 2.0f / -height, 0.0f, 0.0f },
+		{ 2.0f / io.DisplaySize.x, 0.0f, 0.0f, 0.0f },
+		{ 0.0f, 2.0f / -io.DisplaySize.y, 0.0f, 0.0f },
 		{ 0.0f, 0.0f, -1.0f, 0.0f },
 		{ -1.0f, 1.0f, 0.0f, 1.0f },
 	};
-	glUseProgram(shader_handle);
-	glUniform1i(texture_location, 0);
-	glUniformMatrix4fv(proj_mtx_location, 1, GL_FALSE, &ortho_projection[0][0]);
+	glUseProgram(g_ShaderHandle);
+	glUniform1i(g_AttribLocationTex, 0);
+	glUniformMatrix4fv(g_AttribLocationProjMtx, 1, GL_FALSE, &ortho_projection[0][0]);
 
-	// Grow our buffer according to what we need
-	size_t total_vtx_count = 0;
-	for (int n = 0; n < cmd_lists_count; n++)
-		total_vtx_count += cmd_lists[n]->vtx_buffer.size();
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_handle);
-	size_t neededBufferSize = total_vtx_count * sizeof(ImDrawVert);
-	if (neededBufferSize > vbo_max_size)
+	for (int n = 0; n < draw_data->CmdListsCount; n++)
 	{
-		vbo_max_size = neededBufferSize + 5000;  // Grow buffer
-		glBufferData(GL_ARRAY_BUFFER, vbo_max_size, NULL, GL_STREAM_DRAW);
-	}
+		const ImDrawList* cmd_list = draw_data->CmdLists[n];
+		const ImDrawIdx* idx_buffer_offset = 0;
 
-	// Copy and convert all vertices into a single contiguous buffer
-	unsigned char* buffer_data = (unsigned char*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	if (!buffer_data)
-		return;
-	for (int n = 0; n < cmd_lists_count; n++)
-	{
-		const ImDrawList* cmd_list = cmd_lists[n];
-		memcpy(buffer_data, &cmd_list->vtx_buffer[0], cmd_list->vtx_buffer.size() * sizeof(ImDrawVert));
-		buffer_data += cmd_list->vtx_buffer.size() * sizeof(ImDrawVert);
-	}
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(vao_handle);
+		glBindBuffer(GL_ARRAY_BUFFER, g_VboHandle);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)cmd_list->VtxBuffer.size() * sizeof(ImDrawVert), (GLvoid*)&cmd_list->VtxBuffer.front(), GL_STREAM_DRAW);
 
-	int cmd_offset = 0;
-	for (int n = 0; n < cmd_lists_count; n++)
-	{
-		const ImDrawList* cmd_list = cmd_lists[n];
-		int vtx_offset = cmd_offset;
-		const ImDrawCmd* pcmd_end = cmd_list->commands.end();
-		for (const ImDrawCmd* pcmd = cmd_list->commands.begin(); pcmd != pcmd_end; pcmd++)
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ElementsHandle);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)cmd_list->IdxBuffer.size() * sizeof(ImDrawIdx), (GLvoid*)&cmd_list->IdxBuffer.front(), GL_STREAM_DRAW);
+
+		glEnableVertexAttribArray(g_AttribLocationPosition);
+		glEnableVertexAttribArray(g_AttribLocationUV);
+		glEnableVertexAttribArray(g_AttribLocationColor);
+
+#define OFFSETOF(TYPE, ELEMENT) ((size_t)&(((TYPE *)0)->ELEMENT))
+		glVertexAttribPointer(g_AttribLocationPosition, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, pos));
+		glVertexAttribPointer(g_AttribLocationUV, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, uv));
+		glVertexAttribPointer(g_AttribLocationColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, col));
+#undef OFFSETOF
+		for (const ImDrawCmd* pcmd = cmd_list->CmdBuffer.begin(); pcmd != cmd_list->CmdBuffer.end(); pcmd++)
 		{
-			glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->texture_id);
-			glScissor((int)pcmd->clip_rect.x, (int)(height - pcmd->clip_rect.w), (int)(pcmd->clip_rect.z - pcmd->clip_rect.x), (int)(pcmd->clip_rect.w - pcmd->clip_rect.y));
-			glDrawArrays(GL_TRIANGLES, vtx_offset, pcmd->vtx_count);
-			vtx_offset += pcmd->vtx_count;
+			if (pcmd->UserCallback)
+			{
+				pcmd->UserCallback(cmd_list, pcmd);
+			}
+			else
+			{
+				glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->TextureId);
+				glScissor((int)pcmd->ClipRect.x, (int)(fb_height - pcmd->ClipRect.w), (int)(pcmd->ClipRect.z - pcmd->ClipRect.x), (int)(pcmd->ClipRect.w - pcmd->ClipRect.y));
+				glDrawElements(GL_TRIANGLES, (GLsizei)pcmd->ElemCount, GL_UNSIGNED_SHORT, idx_buffer_offset);
+			}
+			idx_buffer_offset += pcmd->ElemCount;
 		}
-		cmd_offset = vtx_offset;
 	}
 
-	// Restore modified state
-	glBindVertexArray(0);
-	glUseProgram(0);
-	glDisable(GL_SCISSOR_TEST);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glDisableVertexAttribArray(position_location);
-	glDisableVertexAttribArray(uv_location);
-	glDisableVertexAttribArray(color_location);
+	// Restore modified GL state
+	glUseProgram(last_program);
+	glBindTexture(GL_TEXTURE_2D, last_texture);
+	glBindBuffer(GL_ARRAY_BUFFER, last_array_buffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, last_element_array_buffer);
+	if (last_enable_blend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
+	if (last_enable_cull_face) glEnable(GL_CULL_FACE); else glDisable(GL_CULL_FACE);
+	if (last_enable_depth_test) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+	if (last_enable_scissor_test) glEnable(GL_SCISSOR_TEST); else glDisable(GL_SCISSOR_TEST);
 }
 
 
-static void LoadFontsTexture()
+void ImImpl_CreateFontsTexture()
 {
 	ImGuiIO& io = ImGui::GetIO();
-	//ImFont* my_font1 = io.Fonts->AddFontDefault();
-	//ImFont* my_font2 = io.Fonts->AddFontFromFileTTF("extra_fonts/Karla-Regular.ttf", 15.0f);
-	//ImFont* my_font3 = io.Fonts->AddFontFromFileTTF("extra_fonts/ProggyClean.ttf", 13.0f); my_font3->DisplayOffset.y += 1;
-	//ImFont* my_font4 = io.Fonts->AddFontFromFileTTF("extra_fonts/ProggyTiny.ttf", 10.0f); my_font4->DisplayOffset.y += 1;
-	//ImFont* my_font5 = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 20.0f, io.Fonts->GetGlyphRangesJapanese());
 
+	// Build texture atlas
 	unsigned char* pixels;
 	int width, height;
-	io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+	io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);   // Load as RGBA 32-bits for OpenGL3 demo because it is more likely to be compatible with user's existing shader.
 
-	GLuint tex_id;
-	if (io.Fonts->TexID)
-	{
-		tex_id = (int)io.Fonts->TexID;
-	}
-	else
-	{
-		glGenTextures(1, &tex_id);
-	}
-	glBindTexture(GL_TEXTURE_2D, tex_id);
+	// Create OpenGL texture
+	glGenTextures(1, &g_FontTexture);
+	glBindTexture(GL_TEXTURE_2D, g_FontTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
 	// Store our identifier
-	io.Fonts->TexID = (void *)(intptr_t)tex_id;
+	io.Fonts->TexID = (void *)(intptr_t)g_FontTexture;
+
+	// Cleanup (don't clear the input data if you want to append new fonts later)
+	io.Fonts->ClearInputData();
+	io.Fonts->ClearTexData();
 }
 
-void ImImpl_InitGL()
+bool ImImpl_CreateDeviceObjects()
 {
+	// Backup GL state
+	GLint last_texture, last_array_buffer;
+	glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
+	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &last_array_buffer);
+
 	const GLchar *vertex_shader =
-		"#version 330\n"
+#ifdef __EMSCRIPTEN__
+		"precision highp float;\n"
+#endif
 		"uniform mat4 ProjMtx;\n"
-		"in vec2 Position;\n"
-		"in vec2 UV;\n"
-		"in vec4 Color;\n"
-		"out vec2 Frag_UV;\n"
-		"out vec4 Frag_Color;\n"
+		"attribute vec2 Position;\n"
+		"attribute vec2 UV;\n"
+		"attribute vec4 Color;\n"
+		"varying vec2 Frag_UV;\n"
+		"varying vec4 Frag_Color;\n"
 		"void main()\n"
 		"{\n"
 		"	Frag_UV = UV;\n"
@@ -293,31 +291,55 @@ void ImImpl_InitGL()
 		"}\n";
 
 	const GLchar* fragment_shader =
-		"#version 330\n"
+#ifdef __EMSCRIPTEN__
+		"precision mediump float;\n"
+#endif
 		"uniform sampler2D Texture;\n"
-		"in vec2 Frag_UV;\n"
-		"in vec4 Frag_Color;\n"
-		"out vec4 Out_Color;\n"
+		"varying vec2 Frag_UV;\n"
+		"varying vec4 Frag_Color;\n"
 		"void main()\n"
 		"{\n"
-		"	Out_Color = Frag_Color * texture( Texture, Frag_UV.st);\n"
+		"	gl_FragColor = Frag_Color * texture2D( Texture, Frag_UV.st);\n"
 		"}\n";
 
-	shader_handle = createProgram(vertex_shader, fragment_shader);
+	g_ShaderHandle = glCreateProgram();
+	g_VertHandle = glCreateShader(GL_VERTEX_SHADER);
+	g_FragHandle = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(g_VertHandle, 1, &vertex_shader, 0);
+	glShaderSource(g_FragHandle, 1, &fragment_shader, 0);
+	glCompileShader(g_VertHandle);
+	glCompileShader(g_FragHandle);
+	glAttachShader(g_ShaderHandle, g_VertHandle);
+	glAttachShader(g_ShaderHandle, g_FragHandle);
+	glLinkProgram(g_ShaderHandle);
 
-	texture_location = glGetUniformLocation(shader_handle, "Texture");
-	proj_mtx_location = glGetUniformLocation(shader_handle, "ProjMtx");
-	position_location = glGetAttribLocation(shader_handle, "Position");
-	uv_location = glGetAttribLocation(shader_handle, "UV");
-	color_location = glGetAttribLocation(shader_handle, "Color");
+	g_AttribLocationTex = glGetUniformLocation(g_ShaderHandle, "Texture");
+	g_AttribLocationProjMtx = glGetUniformLocation(g_ShaderHandle, "ProjMtx");
+	g_AttribLocationPosition = glGetAttribLocation(g_ShaderHandle, "Position");
+	g_AttribLocationUV = glGetAttribLocation(g_ShaderHandle, "UV");
+	g_AttribLocationColor = glGetAttribLocation(g_ShaderHandle, "Color");
 
-	glGenBuffers(1, &vbo_handle);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_handle);
-	glBufferData(GL_ARRAY_BUFFER, vbo_max_size, NULL, GL_DYNAMIC_DRAW);
+	glGenBuffers(1, &g_VboHandle);
+	glGenBuffers(1, &g_ElementsHandle);
 
-	glGenVertexArrays(1, &vao_handle);
+	glBindBuffer(GL_ARRAY_BUFFER, g_VboHandle);
+	glEnableVertexAttribArray(g_AttribLocationPosition);
+	glEnableVertexAttribArray(g_AttribLocationUV);
+	glEnableVertexAttribArray(g_AttribLocationColor);
 
-	LoadFontsTexture();
+#define OFFSETOF(TYPE, ELEMENT) ((size_t)&(((TYPE *)0)->ELEMENT))
+	glVertexAttribPointer(g_AttribLocationPosition, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, pos));
+	glVertexAttribPointer(g_AttribLocationUV, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, uv));
+	glVertexAttribPointer(g_AttribLocationColor, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)OFFSETOF(ImDrawVert, col));
+#undef OFFSETOF
+
+	ImImpl_CreateFontsTexture();
+
+	// Restore modified GL state
+	glBindTexture(GL_TEXTURE_2D, last_texture);
+	glBindBuffer(GL_ARRAY_BUFFER, last_array_buffer);
+
+	return true;
 }
 
 static unsigned int flat_shader_handle, flat_position_location, flat_color_location;
@@ -325,20 +347,23 @@ static unsigned int flat_shader_handle, flat_position_location, flat_color_locat
 void framework_init_flat()
 {
 	const GLchar *vertex_shader =
-		"#version 330\n"
-		"in vec2 Position;\n"
+#ifdef __EMSCRIPTEN__
+		"precision highp float;\n"
+#endif
+		"attribute vec2 Position;\n"
 		"void main()\n"
 		"{\n"
 		"	gl_Position = vec4(Position.xy,0,1);\n"
 		"}\n";
 
 	const GLchar* fragment_shader =
-		"#version 330\n"
+#ifdef __EMSCRIPTEN__
+		"precision mediump float;\n"
+#endif
 		"uniform vec4 Color;\n"
-		"out vec4 Out_Color;\n"
 		"void main()\n"
 		"{\n"
-		"	Out_Color = Color;\n"
+		"	gl_FragColor = Color;\n"
 		"}\n";
 
 	flat_shader_handle = createProgram(vertex_shader, fragment_shader);
@@ -351,10 +376,12 @@ static unsigned int tex_shader_handle, tex_position_location, tex_uv_location, t
 void framework_init_tex()
 {
 	const GLchar *vertex_shader =
-		"#version 330\n"
-		"in vec2 Position;\n"
-		"in vec2 TexCoord;\n"
-		"out vec2 Frag_UV;\n"
+#ifdef __EMSCRIPTEN__
+		"precision highp float;\n"
+#endif
+		"attribute vec2 Position;\n"
+		"attribute vec2 TexCoord;\n"
+		"varying vec2 Frag_UV;\n"
 		"void main()\n"
 		"{\n"
 		"	Frag_UV = TexCoord;\n"
@@ -362,13 +389,14 @@ void framework_init_tex()
 		"}\n";
 
 	const GLchar* fragment_shader =
-		"#version 330\n"
+#ifdef __EMSCRIPTEN__
+		"precision mediump float;\n"
+#endif
 		"uniform sampler2D Texture;\n"
-		"in vec2 Frag_UV;\n"
-		"out vec4 Out_Color;\n"
+		"varying vec2 Frag_UV;\n"
 		"void main()\n"
 		"{\n"
-		"	Out_Color = texture(Texture, Frag_UV.st);\n"
+		"	gl_FragColor = texture2D(Texture, Frag_UV.st);\n"
 		"}\n";
 
 	tex_shader_handle = createProgram(vertex_shader, fragment_shader);
@@ -405,13 +433,18 @@ void DemoTriangle(float x0, float y0, float x1, float y1, float x2, float y2, un
 
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glDisableVertexAttribArray(flat_position_location);
 	glUseProgram(0);
 }
 
-void DemoTexQuad(int tex, float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3)
+void DemoQuad(float x0, float y0, float x1, float y1, unsigned int color)
+{
+	DemoTriangle(x0, y0, x0, y1, x1, y1, color);
+	DemoTriangle(x0, y0, x1, y0, x1, y1, color);
+}
+
+void DemoTexQuad(int tex, float x0, float y0, float x1, float y1)
 {
 	glEnableVertexAttribArray(tex_position_location);
 	glEnableVertexAttribArray(tex_uv_location);
@@ -422,11 +455,11 @@ void DemoTexQuad(int tex, float x0, float y0, float x1, float y1, float x2, floa
 	buf[0] = x0;
 	buf[1] = y0;
 	buf[2] = x1;
-	buf[3] = y1;
-	buf[4] = x2;
-	buf[5] = y2;
-	buf[6] = x3;
-	buf[7] = y3;
+	buf[3] = y0;
+	buf[4] = x0;
+	buf[5] = y1;
+	buf[6] = x1;
+	buf[7] = y1;
 
 	int i;
 	for (i = 0; i < 4; i++)
@@ -460,17 +493,17 @@ void DemoTexQuad(int tex, float x0, float y0, float x1, float y1, float x2, floa
 
 void InitImGui()
 {
-	ImImpl_InitGL();
-
 	ImGuiIO& io = ImGui::GetIO();
 	io.DeltaTime = 1.0f / 60.0f;                     
-	io.KeyMap[ImGuiKey_Tab] = SDLK_TAB;              
-	io.KeyMap[ImGuiKey_LeftArrow] = SDLK_LEFT;
-	io.KeyMap[ImGuiKey_RightArrow] = SDLK_RIGHT;
-	io.KeyMap[ImGuiKey_UpArrow] = SDLK_UP;
-	io.KeyMap[ImGuiKey_DownArrow] = SDLK_DOWN;
-	io.KeyMap[ImGuiKey_Home] = SDLK_HOME;
-	io.KeyMap[ImGuiKey_End] = SDLK_END;
+	io.KeyMap[ImGuiKey_Tab] = SDLK_TAB;
+	io.KeyMap[ImGuiKey_LeftArrow] = SDL_SCANCODE_LEFT;
+	io.KeyMap[ImGuiKey_RightArrow] = SDL_SCANCODE_RIGHT;
+	io.KeyMap[ImGuiKey_UpArrow] = SDL_SCANCODE_UP;
+	io.KeyMap[ImGuiKey_DownArrow] = SDL_SCANCODE_DOWN;
+	io.KeyMap[ImGuiKey_PageUp] = SDL_SCANCODE_PAGEUP;
+	io.KeyMap[ImGuiKey_PageDown] = SDL_SCANCODE_PAGEDOWN;
+	io.KeyMap[ImGuiKey_Home] = SDL_SCANCODE_HOME;
+	io.KeyMap[ImGuiKey_End] = SDL_SCANCODE_END;
 	io.KeyMap[ImGuiKey_Delete] = SDLK_DELETE;
 	io.KeyMap[ImGuiKey_Backspace] = SDLK_BACKSPACE;
 	io.KeyMap[ImGuiKey_Enter] = SDLK_RETURN;
@@ -480,7 +513,7 @@ void InitImGui()
 	io.KeyMap[ImGuiKey_V] = SDLK_v;
 	io.KeyMap[ImGuiKey_X] = SDLK_x;
 	io.KeyMap[ImGuiKey_Y] = SDLK_y;
-	io.KeyMap[ImGuiKey_Z] = SDLK_z;	
+	io.KeyMap[ImGuiKey_Z] = SDLK_z;
 	io.RenderDrawListsFn = ImImpl_RenderDrawLists;
 	io.IniFilename = 0;
 
@@ -552,24 +585,35 @@ void DemoInit()
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-	if (SDL_SetVideoMode(800, 400, 32, SDL_OPENGL) == 0)
-	{
-		fprintf(stderr, "Video mode set failed: %s\n", SDL_GetError());
-		SDL_Quit();
-		exit(0);
-	}
+	int flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+
+
+	gSDLWindow = SDL_CreateWindow(
+		"",
+		SDL_WINDOWPOS_CENTERED,
+		SDL_WINDOWPOS_CENTERED,
+		800,
+		400,
+		flags);
+
+	SDL_GLContext glcontext = SDL_GL_CreateContext(gSDLWindow);
+
+	SDL_GL_SetSwapInterval(1);
+
 
 	glViewport(0, 0, 800, 400);
 
 	// set window title
-	SDL_WM_SetCaption("http://soloud-audio.com", NULL);
+	SDL_SetWindowTitle(gSDLWindow, "http://soloud-audio.com");
 
+#ifndef __EMSCRIPTEN__	
 	glewInit();
+#endif
 
 	InitImGui();
 	framework_init_flat();
 	framework_init_tex();
-	desktop_tex = loadTexture("graphics/soloud_bg.png");
+	desktop_tex = DemoLoadTexture("graphics/soloud_bg.png");
 
 	// Register SDL_Quit to be called at exit; makes sure things are
 	// cleaned up when we quit.
@@ -579,6 +623,9 @@ void DemoInit()
 
 void DemoUpdateStart()
 {
+	if (!g_FontTexture)
+		ImImpl_CreateDeviceObjects();
+
 	SDL_Event event;
 
 	while (SDL_PollEvent(&event))
@@ -636,7 +683,7 @@ void DemoUpdateStart()
 	}
 	glClearColor(0.2f, 0.2f, 0.4f, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
-	DemoTexQuad(desktop_tex, 0, 0, 800, 0, 0, 400, 800, 400);
+	DemoTexQuad(desktop_tex, 0, 0, 800, 400);
 	UpdateImGui();
 
 	gMouseX = gUIState.mousex;
@@ -650,8 +697,7 @@ void DemoUpdateEnd()
 {
 	// End frame
 	ImGui::Render();
-	SDL_GL_SwapBuffers();
-
+	SDL_GL_SwapWindow(gSDLWindow);
 }
 
 int DemoTick()
@@ -662,4 +708,25 @@ int DemoTick()
 void DemoYield()
 {
 	SDL_Delay(1);
+}
+
+extern int DemoEntry(int argc, char *argv[]);
+extern void DemoMainloop();
+
+// Entry point
+int main(int argc, char *argv[])
+{
+	DemoInit();
+	int res = DemoEntry(argc, argv);
+	if (res != 0)
+		return res;
+#ifdef __EMSCRIPTEN__
+	emscripten_set_main_loop(DemoMainloop, 60, 0);
+#else
+	while (1)
+	{
+		DemoMainloop();
+	}
+#endif
+	return 0;
 }

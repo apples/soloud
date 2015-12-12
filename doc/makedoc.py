@@ -11,16 +11,17 @@ import shutil
 
 src = [
     "intro.mmd", 
-    "legal.mmd",
     "downloads.mmd",
     "quickstart.mmd",
+    "faq.mmd",
+    "dirstruct.mmd",
     "premake.mmd",
+    "legal.mmd",
     "concepts.mmd",
     "concepts3d.mmd",
-    "faq.mmd",
+    "voicemanagement.mmd",
     "examples.mmd",
     "foreign_interface.mmd",
-    "codegen.mmd",
     "c_api.mmd",
     "python_api.mmd",
     "ruby_api.mmd",
@@ -29,14 +30,15 @@ src = [
     "gamemaker_api.mmd",
     "cs_api.mmd",
     "d_api.mmd",
+    "codegen.mmd",
     "basics.mmd",
     "attributes.mmd",
     "faders.mmd",
     "voicegroups.mmd", 
     "coremisc.mmd",
     "core3d.mmd",
-    "mixbus.mmd",
     "audiosource.mmd",
+    "newsoundsources.mmd",
     "wav.mmd",
     "wavstream.mmd",
     "speech.mmd",
@@ -44,17 +46,19 @@ src = [
     "modplug.mmd",
     "monotone.mmd",
     "tedsid.mmd",
-    "newsoundsources.mmd",
     "filters.mmd",
     "biquadfilter.mmd",
     "echofilter.mmd",
-    "fftfilter.mmd",
     "lofifilter.mmd",
     "flangerfilter.mmd",
     "dcremovalfilter.mmd",
+    "fftfilter.mmd",
+    "bassboostfilter.mmd",
+    "mixbus.mmd",
     "collider.mmd",
-    "backends.mmd",
-    "file.mmd"
+    "attenuator.mmd",
+    "file.mmd",
+    "backends.mmd"
     ]
 
 website_only = [
@@ -79,7 +83,7 @@ if not os.path.exists("temp/"):
     
 print "- -- --- -- - Generating single-file HTML docs"
 
-callp = ["pandoc", "-s", "--toc", "--default-image-extension=png", "-o", datestring + "/soloud_" + datestring + ".html"]
+callp = ["pandoc", "-s", "-t", "html5", "-H", "singlehtml_head.txt", "-B", "singlehtml_body.txt", "--toc", "--self-contained", "--default-image-extension=png", "-o", datestring + "/soloud_" + datestring + ".html"]
 for x in src:
     if x not in website_only:
         callp.append(x)
@@ -91,7 +95,7 @@ for x in src:
     with open(datestring + "/web/" + x[:len(x)-3]+"html", "w") as file_out:
         with open(datestring + "/web/" + x[:len(x)-3]+"html.bak", "r") as file_in:
             for line in file_in:
-                file_out.write(line.replace('code>', 'code>\n'))
+                file_out.write(line.replace('code>', 'code>\n').replace('::','::<wbr>').replace('\xc2','').replace('\xa0',''))
     if x == "intro.mmd":
         if os.path.isfile(datestring + "/web/index.html"):
             os.remove(datestring + "/web/index.html")
@@ -113,7 +117,11 @@ print "- -- --- -- - Generating LaTex"
 
 for x in src:
     if x not in website_only:
-        subprocess.call(["pandoc", "--listings", "--default-image-extension=pdf", "--chapters", x, "-o", "temp/" + x[:len(x)-3]+"tex"])
+        subprocess.call(["pandoc", "-t", "latex", "--listings", "--default-image-extension=pdf", "--chapters", x, "-o", "temp/" + x[:len(x)-3]+"tex.orig"])
+        with open("temp/" + x[:len(x)-3]+"tex", "w") as file_out:
+            with open("temp/" + x[:len(x)-3]+"tex.orig", "r") as file_in:
+                for line in file_in:
+                    file_out.write(line.replace('\\begin{longtable}[c]{@{}ll@{}}', '\\begin{tabulary}{\\textwidth}{lJ}').replace('\\begin{longtable}[c]{@{}lll@{}}', '\\begin{tabulary}{\\textwidth}{lJJ}').replace('\\begin{longtable}[c]{@{}llll@{}}', '\\begin{tabulary}{\\textwidth}{lJJJ}').replace('\\endhead','').replace('\\end{longtable}','\\end{tabulary}'))
 
 print "- -- --- -- - Generating pdf (xelatex_output.txt)"
 
