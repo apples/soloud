@@ -62,10 +62,10 @@ namespace SoLoud
 		mBasePtr = 0;
 		mData = 0;
 #ifdef DISABLE_SIMD
-		mBasePtr = new unsigned char[aFloats * sizeof(float)];
+		mBasePtr = reinterpret_cast<unsigned char*>(new float[aFloats]);
 		if (mBasePtr == NULL)
 			return OUT_OF_MEMORY;
-		mData = mBasePtr;
+		mData = reinterpret_cast<float*>(mBasePtr);
 #else
 		mBasePtr = new unsigned char[aFloats * sizeof(float) + 16];
 		if (mBasePtr == NULL)
