@@ -11,6 +11,7 @@ EXPORTS
 	Soloud_getBackendChannels
 	Soloud_getBackendSamplerate
 	Soloud_getBackendBufferSize
+	Soloud_setSpeakerPosition
 	Soloud_play
 	Soloud_playEx
 	Soloud_playClocked
@@ -30,6 +31,7 @@ EXPORTS
 	Soloud_getStreamTime
 	Soloud_getPause
 	Soloud_getVolume
+	Soloud_getOverallVolume
 	Soloud_getPan
 	Soloud_getSamplerate
 	Soloud_getProtectVoice
@@ -53,6 +55,7 @@ EXPORTS
 	Soloud_setSamplerate
 	Soloud_setPan
 	Soloud_setPanAbsolute
+	Soloud_setPanAbsoluteEx
 	Soloud_setVolume
 	Soloud_setDelaySamples
 	Soloud_fadeVolume
@@ -93,6 +96,7 @@ EXPORTS
 	Soloud_set3dSourceAttenuation
 	Soloud_set3dSourceDopplerFactor
 	Soloud_mix
+	Soloud_mixSigned16
 	AudioAttenuator_destroy
 	AudioAttenuator_attenuate
 	BiquadResonantFilter_destroy
@@ -112,6 +116,7 @@ EXPORTS
 	Bus_play3dEx
 	Bus_play3dClocked
 	Bus_play3dClockedEx
+	Bus_setChannels
 	Bus_setVisualizationEnable
 	Bus_calcFFT
 	Bus_getWave
@@ -231,26 +236,26 @@ EXPORTS
 	DCRemovalFilter_create
 	DCRemovalFilter_setParams
 	DCRemovalFilter_setParamsEx
-	Modplug_destroy
-	Modplug_create
-	Modplug_load
-	Modplug_loadMem
-	Modplug_loadMemEx
-	Modplug_loadFile
-	Modplug_setVolume
-	Modplug_setLooping
-	Modplug_set3dMinMaxDistance
-	Modplug_set3dAttenuation
-	Modplug_set3dDopplerFactor
-	Modplug_set3dProcessing
-	Modplug_set3dListenerRelative
-	Modplug_set3dDistanceDelay
-	Modplug_set3dCollider
-	Modplug_set3dColliderEx
-	Modplug_set3dAttenuator
-	Modplug_setInaudibleBehavior
-	Modplug_setFilter
-	Modplug_stop
+	Openmpt_destroy
+	Openmpt_create
+	Openmpt_load
+	Openmpt_loadMem
+	Openmpt_loadMemEx
+	Openmpt_loadFile
+	Openmpt_setVolume
+	Openmpt_setLooping
+	Openmpt_set3dMinMaxDistance
+	Openmpt_set3dAttenuation
+	Openmpt_set3dDopplerFactor
+	Openmpt_set3dProcessing
+	Openmpt_set3dListenerRelative
+	Openmpt_set3dDistanceDelay
+	Openmpt_set3dCollider
+	Openmpt_set3dColliderEx
+	Openmpt_set3dAttenuator
+	Openmpt_setInaudibleBehavior
+	Openmpt_setFilter
+	Openmpt_stop
 	Monotone_destroy
 	Monotone_create
 	Monotone_setParams

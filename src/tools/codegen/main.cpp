@@ -1,6 +1,6 @@
 ﻿/*
 SoLoud audio engine
-Copyright (c) 2013-2015 Jari Komppa
+Copyright (c) 2013-2016 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -28,7 +28,7 @@ freely, subject to the following restrictions:
 #include <vector>
 #include <string>
 
-#define VERSION "SoLoud C-Api Code Generator (c)2013-2015 Jari Komppa http://iki.fi/sol/"
+#define VERSION "SoLoud C-Api Code Generator (c)2013-2016 Jari Komppa http://iki.fi/sol/"
 
 #define OUTDIR "../src/c_api/"
 #define PYOUTDIR "../scripts/"
@@ -48,15 +48,13 @@ char *gIncludeFile[] =
 	"../include/soloud_bassboostfilter.h",
 	"../include/soloud_filter.h",
 	"../include/soloud_speech.h",
-	"../include/soloud_thread.h",
+//	"../include/soloud_thread.h",
 	"../include/soloud_wav.h",
 	"../include/soloud_wavstream.h",
 	"../include/soloud_sfxr.h",
 	"../include/soloud_flangerfilter.h",
 	"../include/soloud_dcremovalfilter.h",
-#if defined(WITH_MODPLUG)
-	"../include/soloud_modplug.h",
-#endif
+	"../include/soloud_openmpt.h",
 	"../include/soloud_monotone.h",
 	"../include/soloud_tedsid.h"
 };
@@ -102,6 +100,17 @@ string subs_str(string &aSrc)
 	if (aSrc == "bool") return string("int");
 	if (aSrc == "result") return string("int");
 	return aSrc;
+}
+
+int is_banned(string aName)
+{	
+	if (aName.find("Instance") != string::npos) return 1;
+	if (aName == "AudioCollider") return 1;
+	if (aName == "Filter")  return 1;
+	if (aName == "AudioSource") return 1;
+	if (aName == "Fader") return 1;
+	if (aName == "AlignedFloatBuffer")	return 1;
+	return 0;
 }
 
 char * loadfile(const char *aFilename)
@@ -202,7 +211,7 @@ void parse_params(Method *m, char *b, int &ofs)
 		string pt = "";
 		if (s == "const")
 		{
-			pt = s;
+			pt += s;
 			NEXTTOKEN;
 		}
 		if (s == "unsigned")
@@ -378,7 +387,7 @@ void parse(const char *aFilename, int aPrintProgress = 0)
 					c = new Class;
 					c->mName = classname;
 					c->mParent = parentname;
-					omit = 1;
+					omit = 1;						
 				}
 			}
 			else
@@ -460,6 +469,13 @@ void parse(const char *aFilename, int aPrintProgress = 0)
 				{
 					// possibly function
 					string vt1 = s;
+
+					if (s == "volatile")
+					{
+						vt1 += s;
+						NEXTTOKEN;
+					}
+
 
 					if (s == "const")
 					{
@@ -568,7 +584,7 @@ void fileheader(FILE * f)
 		"\n"
 		"/*\n"
 		"SoLoud audio engine\n"
-		"Copyright (c) 2013-2015 Jari Komppa\n"
+		"Copyright (c) 2013-2016 Jari Komppa\n"
 		"\n"
 		"This software is provided 'as-is', without any express or implied\n"
 		"warranty. In no event will the authors be held liable for any damages\n"
@@ -898,11 +914,7 @@ void generate()
 
 	for (i = 0; i < (signed)gClass.size(); i++)
 	{
-		if (gClass[i]->mName != "AudioCollider" &&
-			gClass[i]->mName.find("Instance") == string::npos &&
-			gClass[i]->mName != "Filter" &&
-			gClass[i]->mName != "AudioSource" &&
-			gClass[i]->mName != "Fader")
+		if (!is_banned(gClass[i]->mName))
 		{
 			fprintf(f,
 				"\n"

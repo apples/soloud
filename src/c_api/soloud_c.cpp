@@ -5,7 +5,7 @@
 
 /*
 SoLoud audio engine
-Copyright (c) 2013-2015 Jari Komppa
+Copyright (c) 2013-2016 Jari Komppa
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
    distribution.
 */
 
-/* SoLoud C-Api Code Generator (c)2013-2015 Jari Komppa http://iki.fi/sol/ */
+/* SoLoud C-Api Code Generator (c)2013-2016 Jari Komppa http://iki.fi/sol/ */
 
 #include "../include/soloud.h"
 #include "../include/soloud_audiosource.h"
@@ -40,13 +40,12 @@ freely, subject to the following restrictions:
 #include "../include/soloud_bassboostfilter.h"
 #include "../include/soloud_filter.h"
 #include "../include/soloud_speech.h"
-#include "../include/soloud_thread.h"
 #include "../include/soloud_wav.h"
 #include "../include/soloud_wavstream.h"
 #include "../include/soloud_sfxr.h"
 #include "../include/soloud_flangerfilter.h"
 #include "../include/soloud_dcremovalfilter.h"
-#include "../include/soloud_modplug.h"
+#include "../include/soloud_openmpt.h"
 #include "../include/soloud_monotone.h"
 #include "../include/soloud_tedsid.h"
 
@@ -71,10 +70,10 @@ int Soloud_init(void * aClassPtr)
 	return cl->init();
 }
 
-int Soloud_initEx(void * aClassPtr, unsigned int aFlags, unsigned int aBackend, unsigned int aSamplerate, unsigned int aBufferSize)
+int Soloud_initEx(void * aClassPtr, unsigned int aFlags, unsigned int aBackend, unsigned int aSamplerate, unsigned int aBufferSize, unsigned int aChannels)
 {
 	Soloud * cl = (Soloud *)aClassPtr;
-	return cl->init(aFlags, aBackend, aSamplerate, aBufferSize);
+	return cl->init(aFlags, aBackend, aSamplerate, aBufferSize, aChannels);
 }
 
 void Soloud_deinit(void * aClassPtr)
@@ -123,6 +122,12 @@ unsigned int Soloud_getBackendBufferSize(void * aClassPtr)
 {
 	Soloud * cl = (Soloud *)aClassPtr;
 	return cl->getBackendBufferSize();
+}
+
+int Soloud_setSpeakerPosition(void * aClassPtr, unsigned int aChannel, float aX, float aY, float aZ)
+{
+	Soloud * cl = (Soloud *)aClassPtr;
+	return cl->setSpeakerPosition(aChannel, aX, aY, aZ);
 }
 
 unsigned int Soloud_play(void * aClassPtr, AudioSource * aSound)
@@ -237,6 +242,12 @@ float Soloud_getVolume(void * aClassPtr, unsigned int aVoiceHandle)
 {
 	Soloud * cl = (Soloud *)aClassPtr;
 	return cl->getVolume(aVoiceHandle);
+}
+
+float Soloud_getOverallVolume(void * aClassPtr, unsigned int aVoiceHandle)
+{
+	Soloud * cl = (Soloud *)aClassPtr;
+	return cl->getOverallVolume(aVoiceHandle);
 }
 
 float Soloud_getPan(void * aClassPtr, unsigned int aVoiceHandle)
@@ -375,6 +386,12 @@ void Soloud_setPanAbsolute(void * aClassPtr, unsigned int aVoiceHandle, float aL
 {
 	Soloud * cl = (Soloud *)aClassPtr;
 	cl->setPanAbsolute(aVoiceHandle, aLVolume, aRVolume);
+}
+
+void Soloud_setPanAbsoluteEx(void * aClassPtr, unsigned int aVoiceHandle, float aLVolume, float aRVolume, float aLBVolume, float aRBVolume, float aCVolume, float aSVolume)
+{
+	Soloud * cl = (Soloud *)aClassPtr;
+	cl->setPanAbsolute(aVoiceHandle, aLVolume, aRVolume, aLBVolume, aRBVolume, aCVolume, aSVolume);
 }
 
 void Soloud_setVolume(void * aClassPtr, unsigned int aVoiceHandle, float aVolume)
@@ -617,6 +634,12 @@ void Soloud_mix(void * aClassPtr, float * aBuffer, unsigned int aSamples)
 	cl->mix(aBuffer, aSamples);
 }
 
+void Soloud_mixSigned16(void * aClassPtr, short * aBuffer, unsigned int aSamples)
+{
+	Soloud * cl = (Soloud *)aClassPtr;
+	cl->mixSigned16(aBuffer, aSamples);
+}
+
 void AudioAttenuator_destroy(void * aClassPtr)
 {
   delete (AudioAttenuator *)aClassPtr;
@@ -722,6 +745,12 @@ unsigned int Bus_play3dClockedEx(void * aClassPtr, double aSoundTime, AudioSourc
 {
 	Bus * cl = (Bus *)aClassPtr;
 	return cl->play3dClocked(aSoundTime, *aSound, aPosX, aPosY, aPosZ, aVelX, aVelY, aVelZ, aVolume);
+}
+
+int Bus_setChannels(void * aClassPtr, unsigned int aChannels)
+{
+	Bus * cl = (Bus *)aClassPtr;
+	return cl->setChannels(aChannels);
 }
 
 void Bus_setVisualizationEnable(void * aClassPtr, int aEnable)
@@ -1418,121 +1447,121 @@ int DCRemovalFilter_setParamsEx(void * aClassPtr, float aLength)
 	return cl->setParams(aLength);
 }
 
-void Modplug_destroy(void * aClassPtr)
+void Openmpt_destroy(void * aClassPtr)
 {
-  delete (Modplug *)aClassPtr;
+  delete (Openmpt *)aClassPtr;
 }
 
-void * Modplug_create()
+void * Openmpt_create()
 {
-  return (void *)new Modplug;
+  return (void *)new Openmpt;
 }
 
-int Modplug_load(void * aClassPtr, const char * aFilename)
+int Openmpt_load(void * aClassPtr, const char * aFilename)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	return cl->load(aFilename);
 }
 
-int Modplug_loadMem(void * aClassPtr, unsigned char * aMem, unsigned int aLength)
+int Openmpt_loadMem(void * aClassPtr, unsigned char * aMem, unsigned int aLength)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	return cl->loadMem(aMem, aLength);
 }
 
-int Modplug_loadMemEx(void * aClassPtr, unsigned char * aMem, unsigned int aLength, int aCopy, int aTakeOwnership)
+int Openmpt_loadMemEx(void * aClassPtr, unsigned char * aMem, unsigned int aLength, int aCopy, int aTakeOwnership)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	return cl->loadMem(aMem, aLength, !!aCopy, !!aTakeOwnership);
 }
 
-int Modplug_loadFile(void * aClassPtr, File * aFile)
+int Openmpt_loadFile(void * aClassPtr, File * aFile)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	return cl->loadFile(aFile);
 }
 
-void Modplug_setVolume(void * aClassPtr, float aVolume)
+void Openmpt_setVolume(void * aClassPtr, float aVolume)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->setVolume(aVolume);
 }
 
-void Modplug_setLooping(void * aClassPtr, int aLoop)
+void Openmpt_setLooping(void * aClassPtr, int aLoop)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->setLooping(!!aLoop);
 }
 
-void Modplug_set3dMinMaxDistance(void * aClassPtr, float aMinDistance, float aMaxDistance)
+void Openmpt_set3dMinMaxDistance(void * aClassPtr, float aMinDistance, float aMaxDistance)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dMinMaxDistance(aMinDistance, aMaxDistance);
 }
 
-void Modplug_set3dAttenuation(void * aClassPtr, unsigned int aAttenuationModel, float aAttenuationRolloffFactor)
+void Openmpt_set3dAttenuation(void * aClassPtr, unsigned int aAttenuationModel, float aAttenuationRolloffFactor)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dAttenuation(aAttenuationModel, aAttenuationRolloffFactor);
 }
 
-void Modplug_set3dDopplerFactor(void * aClassPtr, float aDopplerFactor)
+void Openmpt_set3dDopplerFactor(void * aClassPtr, float aDopplerFactor)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dDopplerFactor(aDopplerFactor);
 }
 
-void Modplug_set3dProcessing(void * aClassPtr, int aDo3dProcessing)
+void Openmpt_set3dProcessing(void * aClassPtr, int aDo3dProcessing)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dProcessing(!!aDo3dProcessing);
 }
 
-void Modplug_set3dListenerRelative(void * aClassPtr, int aListenerRelative)
+void Openmpt_set3dListenerRelative(void * aClassPtr, int aListenerRelative)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dListenerRelative(!!aListenerRelative);
 }
 
-void Modplug_set3dDistanceDelay(void * aClassPtr, int aDistanceDelay)
+void Openmpt_set3dDistanceDelay(void * aClassPtr, int aDistanceDelay)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dDistanceDelay(!!aDistanceDelay);
 }
 
-void Modplug_set3dCollider(void * aClassPtr, AudioCollider * aCollider)
+void Openmpt_set3dCollider(void * aClassPtr, AudioCollider * aCollider)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dCollider(aCollider);
 }
 
-void Modplug_set3dColliderEx(void * aClassPtr, AudioCollider * aCollider, int aUserData)
+void Openmpt_set3dColliderEx(void * aClassPtr, AudioCollider * aCollider, int aUserData)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dCollider(aCollider, aUserData);
 }
 
-void Modplug_set3dAttenuator(void * aClassPtr, AudioAttenuator * aAttenuator)
+void Openmpt_set3dAttenuator(void * aClassPtr, AudioAttenuator * aAttenuator)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->set3dAttenuator(aAttenuator);
 }
 
-void Modplug_setInaudibleBehavior(void * aClassPtr, int aMustTick, int aKill)
+void Openmpt_setInaudibleBehavior(void * aClassPtr, int aMustTick, int aKill)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->setInaudibleBehavior(!!aMustTick, !!aKill);
 }
 
-void Modplug_setFilter(void * aClassPtr, unsigned int aFilterId, Filter * aFilter)
+void Openmpt_setFilter(void * aClassPtr, unsigned int aFilterId, Filter * aFilter)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->setFilter(aFilterId, aFilter);
 }
 
-void Modplug_stop(void * aClassPtr)
+void Openmpt_stop(void * aClassPtr)
 {
-	Modplug * cl = (Modplug *)aClassPtr;
+	Openmpt * cl = (Openmpt *)aClassPtr;
 	cl->stop();
 }
 

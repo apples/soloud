@@ -33,7 +33,7 @@ int main(int parc, char ** pars)
 
 	Speech_setText(speech, "1 2 3       A B C        Doooooo    Reeeeee    Miiiiii    Faaaaaa    Soooooo    Laaaaaa    Tiiiiii    Doooooo!");
 
-	Soloud_initEx(soloud,SOLOUD_CLIP_ROUNDOFF | SOLOUD_ENABLE_VISUALIZATION, SOLOUD_AUTO, SOLOUD_AUTO, SOLOUD_AUTO);
+	Soloud_initEx(soloud,SOLOUD_CLIP_ROUNDOFF | SOLOUD_ENABLE_VISUALIZATION, SOLOUD_AUTO, SOLOUD_AUTO, SOLOUD_AUTO, SOLOUD_AUTO);
 
 	Soloud_setGlobalVolume(soloud, 4);
 	Soloud_play(soloud, speech);
@@ -42,10 +42,11 @@ int main(int parc, char ** pars)
 
 	while (Soloud_getVoiceCount(soloud) > 0)
 	{
+		int p;
 		float * v = Soloud_calcFFT(soloud);
 		printf("\r%c ", (int)("|\\-/"[spin & 3]));
 		spin++;
-		int p = (int)(v[10] * 30);
+		p = (int)(v[10] * 30);
 		if (p > 59) p = 59;
 		for (i = 0; i < p; i++)
 			printf("=");

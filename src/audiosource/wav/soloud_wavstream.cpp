@@ -242,11 +242,12 @@ namespace SoLoud
 					mLoopCount++;
 				}
 				else
-				{
+				{					
 					unsigned int i;
 					for (i = 0; i < channels; i++)
 						memset(aBuffer + copysize + i * aSamples, 0, sizeof(float) * (aSamples - copysize));
-					mOffset += aSamples - copysize;
+						
+					mOffset += aSamples;
 				}
 			}
 			else
@@ -288,7 +289,6 @@ namespace SoLoud
 		mOgg = 0;
 		mDataOffset = 0;
 		mBits = 0;
-		mChannels = 0;
 		mMemFile = 0;
 		mStreamFile = 0;
 	}
@@ -310,7 +310,20 @@ namespace SoLoud
 		{
 			return FILE_LOAD_FAILED;
 		}
-		if (fp->read32() != MAKEDWORD('f', 'm', 't', ' '))
+		int chunk = fp->read32();
+		if (chunk == MAKEDWORD('J', 'U', 'N', 'K'))
+		{
+			int size = fp->read32();
+			if (size & 1)
+			{
+				size += 1;
+			}
+			int i;
+			for (i = 0; i < size; i++)
+				fp->read8();
+			chunk = fp->read32();
+		}
+		if (chunk != MAKEDWORD('f', 'm', 't', ' '))
 		{
 			return FILE_LOAD_FAILED;
 		}
@@ -329,7 +342,7 @@ namespace SoLoud
 			return FILE_LOAD_FAILED;
 		}
 		
-		int chunk = fp->read32();
+		chunk = fp->read32();
 		
 		if (chunk == MAKEDWORD('L','I','S','T'))
 		{
@@ -347,6 +360,8 @@ namespace SoLoud
 
 		int readchannels = 1;
 
+		mChannels = channels;
+
 		if (channels > 1)
 		{
 			readchannels = 2;
@@ -359,7 +374,6 @@ namespace SoLoud
 		
 		mDataOffset = fp->pos();
 		mBits = bitspersample;
-		mChannels = channels;	
 		mBaseSamplerate = (float)samplerate;
 		mSampleCount = samples;
 		mOgg = 0;
@@ -376,6 +390,7 @@ namespace SoLoud
 		if (v == NULL)
 			return FILE_LOAD_FAILED;
 		stb_vorbis_info info = stb_vorbis_get_info(v);
+		mChannels = 1;
 		if (info.channels > 1)
 		{
 			mChannels = 2;

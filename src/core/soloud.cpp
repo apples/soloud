@@ -563,7 +563,7 @@ namespace SoLoud
 		{
 			float real = temp[i];
 			float imag = temp[i+512];
-			mFFTData[i] = sqrt(real*real+imag*imag);
+			mFFTData[i] = (float)sqrt(real*real+imag*imag);
 		}
 
 		return mFFTData;
@@ -1517,7 +1517,7 @@ namespace SoLoud
 		interlace_samples_float(mScratch.mData, aBuffer, aSamples, mChannels);
 	}
 
-	void Soloud::mix_s16(short *aBuffer, unsigned int aSamples)
+	void Soloud::mixSigned16(short *aBuffer, unsigned int aSamples)
 	{
 		mix_internal(aSamples);
 		interlace_samples_s16(mScratch.mData, aBuffer, aSamples, mChannels);
